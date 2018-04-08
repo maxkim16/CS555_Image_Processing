@@ -10,8 +10,6 @@ import java.io.IOException;
 import javax.imageio.ImageIO;
 
 public class Image_Operations {
-
-	private static SampleModel sampleModel;
 	
 	public static void getImgInfo(BufferedImage bi) {
 
@@ -33,7 +31,7 @@ public class Image_Operations {
 	    Raster raster = img.getData();
 	    
 	    // sampleModel will be used when converting the modified pixel values back into the modified raster and BuffedImage
-	    sampleModel = raster.getSampleModel();
+	    //sampleModel = raster.getSampleModel();
 	    
 	    // copy the pixels into the 2d array
 	    for (int i = 0; i < width; i++) {
@@ -44,7 +42,7 @@ public class Image_Operations {
 	    return imgArr;
 	}
 	
-	public static void print2Darray(int[][] arr) {
+	public static void printPixels(int[][] arr) {
 		int row = arr.length;
 		int col = arr[0].length;
 		for (int i = 0; i < row; i++ ) {
@@ -101,7 +99,7 @@ public class Image_Operations {
 		}
 	}
 	
-	public static BufferedImage convertPixelToBufImg(int pixels[][]) {
+	public static BufferedImage convertPixelToBufImg(int pixels[][], SampleModel sampleModel) {
 		int w = pixels.length;
 		int h = pixels[0].length;
 		// sampleModel is needed instead of image.getData() function
@@ -117,16 +115,89 @@ public class Image_Operations {
 		return image;
 	}
 	
+	public static void shrinkPixels(int[][] arr, int newW, int newH) {
+		int row = arr.length;
+		int col = arr[0].length;
+		
+		/*
+		for (int i = 0; i < row; i++) {
+			if(i % 2 == 0) {
+				for (int j = 0; j < col; j+=2) {
+					arr[i][j] = 0;
+				}
+			}
+			else {
+				for (int j = 1; j < col; j+=2) {
+					arr[i][j] = 0;
+				}
+			}	
+		}
+		*/
+		
+		for (int i = 0; i < row; i++) {
+				for (int j = 0; j < col; j+=2) {
+					arr[i][j] = 0;
+				}	
+		}
+	}
+	
+	public static void createSample() throws IOException {
+		BufferedImage lena, lenaGray, modifiedLena = null;
+		int[][] lenaArr = null;
+		SampleModel sampleModel;
+		Raster raster = null;
+		
+		// load the image
+		lena = loadImage();
+		
+		// get the gray scale version of Lena image
+		lenaGray = convertToGrayScale(lena);
+
+		// get the pixels of the image by getting the raster of the image
+		lenaArr = imgTo2DArrPixel(lenaGray);
+
+		// decrease the intensity of the picture by 150
+		decreaseIntensity(lenaArr, 150);
+
+		// create a buffered image that will store the modified image
+		// make sure it matches the size and the type of the original image
+		// if the two images will be the same size and same type
+		modifiedLena = new BufferedImage(lenaArr.length, lenaArr[0].length, BufferedImage.TYPE_BYTE_GRAY);
+		
+		// sampleModel will be stored into a writableRaster, which will need a sample raster
+		// SampleModel represents samples of pixels in am image
+		// WritableRaster therefore needs it to see what kind of samples an image has
+		// For example, the number of samples, etc.
+		raster = modifiedLena.getData();
+	    sampleModel = raster.getSampleModel();
+
+	    // convert the pixel values into a bufferedImage
+		modifiedLena = convertPixelToBufImg(lenaArr, sampleModel);
+		
+		// write the bufferedImage into a file and save it
+		writeFile(modifiedLena, "ggg.gif");
+	}
+	
+	// this method returns the sampleModel of the bufferedImage
+	public static SampleModel getSampleModel(BufferedImage bi) {
+		Raster raster = bi.getData();
+		SampleModel sampleModel = raster.getSampleModel();
+		return sampleModel;
+	}
+	
 	public static void main(String[] args) throws IOException {
 		int[][] imgGrayArr, imgArr = null;
 		BufferedImage img, imgGray, modifiedImg = null;
-		
-		
+		SampleModel sampleModel;
+
 		img = loadImage();
 		imgGray = convertToGrayScale(img);
 		imgGrayArr = imgTo2DArrPixel(imgGray);
+		modifiedImg = new BufferedImage(imgGray.getWidth(), imgGray.getHeight(), BufferedImage.TYPE_BYTE_GRAY);
+		sampleModel = getSampleModel(modifiedImg);
 		decreaseIntensity(imgGrayArr, 150);
-		modifiedImg = convertPixelToBufImg(imgGrayArr);
-		writeFile(modifiedImg, "testttt.gif");
+		modifiedImg = convertPixelToBufImg(imgGrayArr, sampleModel);
+		//writeFile(modifiedImg, "m.gif");
+		createSample();
 	}
 }
