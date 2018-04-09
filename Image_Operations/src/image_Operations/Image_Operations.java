@@ -345,14 +345,69 @@ public class Image_Operations {
 	
 	// change the grayscale resolution by modifying all the pixel values
 	public static void changeGrayResPixel(int[][] pixel, int numOfBits) {
+		// commonly the number of bits used for the byte image is 8 in a grayscale image
+		int defaultNumOfBits = 8; // 
 		int numOfRow = pixel.length;
 		int numOfCol = pixel[0].length;
 		// change the grayscale resolution
 		for(int i = 0; i < numOfRow; i++)	{
 			for(int j = 0; j < numOfCol; j++) {
-				pixel[i][j] = (int) Math.floor( (pixel[i][j]) / (Math.pow(2, 8-numOfBits)) );
+				pixel[i][j] = (int) Math.floor( (pixel[i][j]) / (Math.pow(2, 8 - defaultNumOfBits)) );
 			}
 		}
+	}
+	
+	// shrink the pixel grid by given the size
+	public static int[][] shrinkPixel(int[][] pixel, int numRow, int numCol) {
+		int[][] shrinkedPixel = new int[numRow][numCol];
+		int numRowOriImg = pixel.length;
+		int numColOriImg = pixel[0].length;
+		int selectedRow, selectedCol;
+		selectedRow = (int) Math.floor((numRowOriImg / numRow));
+		selectedCol = (int) Math.floor((numColOriImg / numCol));
+		for(int i = 0; i < numRow; i++)
+			for(int j = 0; j < numCol; j++)
+				shrinkedPixel[i][j] =  pixel[i * selectedRow][j * selectedCol ];
+		return shrinkedPixel;
+	}
+	
+	public static void shrinkPixelTest(int newSize, String filename) throws IOException {
+		BufferedImage lena, lenaGray, modifiedLena = null;
+		int[][] lenaArr = null;
+		int[][] shrinkedArr = null;
+		SampleModel sampleModel;
+		Raster raster = null;
+		
+		// load the image
+		lena = loadImage();
+		
+		// get the gray scale version of Lena image
+		lenaGray = convertToGrayScale(lena);
+
+		// get the pixels of the image by getting the raster of the image
+		lenaArr = imgTo2DArrPixel(lenaGray);
+
+		// decrease the intensity of the picture by 150
+		//decreaseIntensity(lenaArr, 150);
+		shrinkedArr = shrinkPixel(lenaArr ,newSize, newSize);
+		
+		// create a buffered image that will store the modified image
+		// make sure it matches the size and the type of the original image
+		// if the two images will be the same size and same type
+		modifiedLena = new BufferedImage(newSize, newSize, BufferedImage.TYPE_BYTE_GRAY);
+		
+		// sampleModel will be stored into a writableRaster, which will need a sample raster
+		// SampleModel represents samples of pixels in am image
+		// WritableRaster therefore needs it to see what kind of samples an image has
+		// For example, the number of samples, etc.
+		raster = modifiedLena.getData();
+	    sampleModel = raster.getSampleModel();
+
+	    // convert the pixel values into a bufferedImage
+		modifiedLena = convertPixelToBufImg(shrinkedArr, sampleModel);
+		
+		// write the bufferedImage into a file and save it
+		writeFile(modifiedLena, filename);
 	}
 	
 	public static void main(String[] args) throws IOException {
@@ -362,5 +417,6 @@ public class Image_Operations {
 		zoomNeighbors(imgGray, 1024, 1024, "nn1024.gif"); // Use Nearest Neighbors Interpolation to zoom an image
 		zoomBilinear(imgGray, 1024, 1024, "bi1024.gif"); // Use Bilinear Interpolation to zoom the image
 		changeGrayScaleRes(img, 5, "res5.gif");
+		shrinkPixelTest(64, "shrinked64.gif");
 	}
 }
