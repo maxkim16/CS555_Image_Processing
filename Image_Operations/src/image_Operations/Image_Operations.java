@@ -157,8 +157,9 @@ public class Image_Operations {
 		lenaArr = imgTo2DArrPixel(lenaGray);
 
 		// decrease the intensity of the picture by 150
-		decreaseIntensity(lenaArr, 150);
-
+		//decreaseIntensity(lenaArr, 150);
+		changeGrayResPixel(lenaArr, 5);
+		
 		// create a buffered image that will store the modified image
 		// make sure it matches the size and the type of the original image
 		// if the two images will be the same size and same type
@@ -175,7 +176,7 @@ public class Image_Operations {
 		modifiedLena = convertPixelToBufImg(lenaArr, sampleModel);
 		
 		// write the bufferedImage into a file and save it
-		writeFile(modifiedLena, "ggg.gif");
+		writeFile(modifiedLena, "changed555.gif");
 	}
 	
 	// this method returns the sampleModel of the bufferedImage
@@ -203,12 +204,73 @@ public class Image_Operations {
 						e.printStackTrace();
 		}
 		pixelIn1dArr = gridTo1dArr(oriImgPixel);
-		zoomedPixelIn1dArr = resizePixelsNN(pixelIn1dArr, w1, h1, newW, newH);
+		// Use Bilinear Algorithm on the given pixel values.
+		zoomedPixelIn1dArr = resizePixelsNN(pixelIn1dArr, w1, h1, newW, newH); 
 		zoomedPixel = pixelTo1dToGrid(zoomedPixelIn1dArr, newW, newH);
 		
 		sampleModel = getSampleModel(zoomedImage);
 		zoomedImage = convertPixelToBufImg(zoomedPixel, sampleModel);
 		writeFile(zoomedImage, filename);
+	}
+	
+	public static void zoomBilinear(BufferedImage bi, int newW, int newH, String filename) {
+		BufferedImage zoomedImage = new BufferedImage(newW, newH, BufferedImage.TYPE_BYTE_GRAY);
+		SampleModel sampleModel = null;
+		int w1, h1, w2, h2;
+		int[][] oriImgPixel, zoomedPixel;
+		int[] pixelIn1dArr, zoomedPixelIn1dArr;
+		w1 = bi.getWidth();
+		h1 = bi.getHeight();
+		oriImgPixel = new int[w1][h1];
+		
+		
+		try {
+			oriImgPixel = imgTo2DArrPixel(bi);
+		} catch (IOException e) {
+						e.printStackTrace();
+		}
+		pixelIn1dArr = gridTo1dArr(oriImgPixel);
+		// Use Bilinear Algorithm on the given pixel values.
+		zoomedPixelIn1dArr = resizeBilinearGray(pixelIn1dArr, w1, h1, newW, newH); 
+		zoomedPixel = pixelTo1dToGrid(zoomedPixelIn1dArr, newW, newH);
+		
+		sampleModel = getSampleModel(zoomedImage);
+		zoomedImage = convertPixelToBufImg(zoomedPixel, sampleModel);
+		writeFile(zoomedImage, filename);
+	}
+	
+	// Use Bilinear Interpolation to zoom the image
+	public static int[] resizeBilinearGray(int[] pixels, int w, int h, int w2, int h2) {
+	    int[] temp = new int[w2*h2] ;
+	    int A, B, C, D, x, y, index, gray ;
+	    float x_ratio = ((float)(w-1))/w2 ;
+	    float y_ratio = ((float)(h-1))/h2 ;
+	    float x_diff, y_diff, ya, yb ;
+	    int offset = 0 ;
+	    for (int i=0;i<h2;i++) {
+	        for (int j=0;j<w2;j++) {
+	            x = (int)(x_ratio * j) ;
+	            y = (int)(y_ratio * i) ;
+	            x_diff = (x_ratio * j) - x ;
+	            y_diff = (y_ratio * i) - y ;
+	            index = y*w+x ;
+
+	            // range is 0 to 255 thus bitwise AND with 0xff
+	            A = pixels[index] & 0xff ;
+	            B = pixels[index+1] & 0xff ;
+	            C = pixels[index+w] & 0xff ;
+	            D = pixels[index+w+1] & 0xff ;
+	            
+	            // Y = A(1-w)(1-h) + B(w)(1-h) + C(h)(1-w) + Dwh
+	            gray = (int)(
+	                    A*(1-x_diff)*(1-y_diff) +  B*(x_diff)*(1-y_diff) +
+	                    C*(y_diff)*(1-x_diff)   +  D*(x_diff*y_diff)
+	                    ) ;
+
+	            temp[offset++] = gray ;                                   
+	        }
+	    }
+	    return temp ;
 	}
 	
 	public static int[][] pixelTo1dToGrid(int[] a, int h, int w) {
@@ -245,27 +307,60 @@ public class Image_Operations {
 		return arr;
 	}
 	
-	public static void main(String[] args) throws IOException {
-
-		int[][] imgGrayArr, imgArr = null;
-		BufferedImage img, imgGray, modifiedImg = null;
+	//
+	public static int[][] changeGrayScaleRes(BufferedImage bi, int numOfBits, String name) throws IOException {
+		BufferedImage biGray, modifiedBi = null;
+		int[][] biGrayArr = null;
 		SampleModel sampleModel;
+		Raster raster = null;
+		
+		// get the gray scale version of Lena image
+		biGray = convertToGrayScale(bi);
 
+		// get the pixels of the image by getting the raster of the image
+		biGrayArr = imgTo2DArrPixel(biGray);
+
+		// change the number of bits of grayscale resolution
+		changeGrayResPixel(biGrayArr, numOfBits);
+		
+		// create a buffered image that will store the modified image
+		// make sure it matches the size and the type of the original image
+		// if the two images will be the same size and same type
+		modifiedBi = new BufferedImage(biGrayArr.length, biGrayArr[0].length, BufferedImage.TYPE_BYTE_GRAY);
+		
+		// sampleModel will be stored into a writableRaster, which will need a sample raster
+		// SampleModel represents samples of pixels in am image
+		// WritableRaster therefore needs it to see what kind of samples an image has
+		// For example, the number of samples, etc.
+		raster = modifiedBi.getData();
+	    sampleModel = raster.getSampleModel();
+
+	    // convert the pixel values into a bufferedImage
+		modifiedBi = convertPixelToBufImg(biGrayArr, sampleModel);
+		
+		// write the bufferedImage into a file and save it
+		writeFile(modifiedBi, name);
+		return null;
+	}
+	
+	// change the grayscale resolution by modifying all the pixel values
+	public static void changeGrayResPixel(int[][] pixel, int numOfBits) {
+		int numOfRow = pixel.length;
+		int numOfCol = pixel[0].length;
+		// change the grayscale resolution
+		for(int i = 0; i < numOfRow; i++)	{
+			for(int j = 0; j < numOfCol; j++) {
+				pixel[i][j] = (int) Math.floor( (pixel[i][j]) / (Math.pow(2, 8-numOfBits)) );
+			}
+		}
+	}
+	
+	public static void main(String[] args) throws IOException {
+		BufferedImage img, imgGray = null;
 		img = loadImage();
 		imgGray = convertToGrayScale(img);
 		zoomNeighbors(imgGray, 1024, 1024, "nn1024.gif"); // Use Nearest Neighbors Interpolation to zoom an image
-		
-		//imgGrayArr = imgTo2DArrPixel(imgGray);
-		//modifiedImg = new BufferedImage(imgGray.getWidth(), imgGray.getHeight(), BufferedImage.TYPE_BYTE_GRAY);
-		//sampleModel = getSampleModel(modifiedImg);
-		//decreaseIntensity(imgGrayArr, 150);
-		//modifiedImg = convertPixelToBufImg(imgGrayArr, sampleModel);
-		//writeFile(modifiedImg, "m.gif");
-		//createSample();
-		
-		
-		
-		
-
+		zoomBilinear(imgGray, 1024, 1024, "bi1024.gif"); // Use Bilinear Interpolation to zoom the image
+		changeGrayScaleRes(img, 5, "res5.gif");
 	}
 }
