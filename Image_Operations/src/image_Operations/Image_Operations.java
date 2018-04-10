@@ -56,11 +56,10 @@ public class Image_Operations {
 
 	}
 	
-	public static BufferedImage loadImage() {
+	public static BufferedImage loadImage(String path) {
 		BufferedImage img = null;
 		try {
-			File imgFile = new File("/Users/maxkim/Applications/maxfolder/CPP/"
-					+ "CS555_Image_Processing_Raheja/Image_Operations/lena_gray.gif");
+			File imgFile = new File(path);
 			img = ImageIO.read(imgFile);
 		} catch (IOException e) {
 			System.out.println(e.getMessage());
@@ -148,7 +147,8 @@ public class Image_Operations {
 		Raster raster = null;
 		
 		// load the image
-		lena = loadImage();
+		lena = loadImage("/Users/maxkim/Applications/maxfolder/CPP/"
+				+ "CS555_Image_Processing_Raheja/Image_Operations/lena_gray.gif");
 		
 		// get the gray scale version of Lena image
 		lenaGray = convertToGrayScale(lena);
@@ -213,6 +213,75 @@ public class Image_Operations {
 		writeFile(zoomedImage, filename);
 	}
 	
+	public static void zoomLinearY(BufferedImage bi, int newW, int newH,String direction, String filename) {
+		BufferedImage zoomedImage = new BufferedImage(newW, newH, BufferedImage.TYPE_BYTE_GRAY);
+		SampleModel sampleModel = null;
+		int w1, h1, w2, h2;
+		int[][] oriImgPixel, zoomedPixel;
+		int[] pixelIn1dArr, zoomedPixelIn1dArr;
+		w1 = bi.getWidth();
+		h1 = bi.getHeight();
+		oriImgPixel = new int[w1][h1];
+		
+		
+		try {
+			oriImgPixel = imgTo2DArrPixel(bi);
+		} catch (IOException e) {
+						e.printStackTrace();
+		}
+		pixelIn1dArr = gridTo1dArr(oriImgPixel);
+		// Use Linear Algorithm on the given pixel values (only Y values)
+		zoomedPixelIn1dArr = resizeLinearGrayY(pixelIn1dArr, w1, h1, newW, newH, direction); 
+		
+		// Use Nearest Neighbors to interpolate x values /////////////
+		zoomedPixelIn1dArr = useNNxValues(pixelIn1dArr, w1, h1, newW, newH);
+		
+		zoomedPixel = pixelTo1dToGrid(zoomedPixelIn1dArr, newW, newH);
+		
+		sampleModel = getSampleModel(zoomedImage);
+		zoomedImage = convertPixelToBufImg(zoomedPixel, sampleModel);
+		writeFile(zoomedImage, filename);
+	}
+	
+	// Use Lilinear Interpolation to zoom the image only in y-direction
+		public static int[] resizeLinearGrayY(int[] pixels, int w, int h, int w2, int h2, String direction) {
+			int rowsForLinearInt = h2/h;
+			System.out.println("selected rows: " + rowsForLinearInt);
+			int[][] temp2 = new int[w2][h2];
+		    int[] temp = new int[w2*h2] ;
+		    int A, B, C, D, x, y, index, gray ;
+		    float x_ratio = ((float)(w-1))/w2 ;
+		    float y_ratio = ((float)(h-1))/h2 ;
+		    float x_diff, y_diff;
+		    int offset = 0 ;
+		    for (int i=0;i<h2;i+=rowsForLinearInt) {
+		        for (int j=0;j<w2;j++) {
+		            x = (int)(x_ratio * j) ;
+		            y = (int)(y_ratio * i) ;
+		            x_diff = (x_ratio * j) - x ;
+		            y_diff = (y_ratio * i) - y ;
+		            index = y*w+x ;
+
+		            // range is 0 to 255 thus bitwise AND with 0xff
+		            A = pixels[index] & 0xff ;
+		            B = pixels[index+1] & 0xff ;
+		            // C = pixels[index+w] & 0xff ;
+		            // D = pixels[index+w+1] & 0xff ;
+		            
+		            // Y = A(1-w)(1-h) + B(w)(1-h) + C(h)(1-w) + Dwh
+		            gray = (int)(
+		                    A*(1-x_diff)*(1-y_diff) +  B*(x_diff)*(1-y_diff) 
+		                    ) ;
+		            temp2[i][j] = gray;
+		            //temp[offset++] = gray ;                                   
+		        }
+		    }
+		    // return temp;
+		    return gridTo1dArr(temp2);
+		    //return temp;
+		}
+		
+	
 	public static void zoomBilinear(BufferedImage bi, int newW, int newH, String filename) {
 		BufferedImage zoomedImage = new BufferedImage(newW, newH, BufferedImage.TYPE_BYTE_GRAY);
 		SampleModel sampleModel = null;
@@ -273,12 +342,35 @@ public class Image_Operations {
 	    return temp ;
 	}
 	
+	
+	
 	public static int[][] pixelTo1dToGrid(int[] a, int h, int w) {
 		int[][] b = new int[h][w];
 		for (int i = 0; i < h; i++)
 			for (int j = 0; j < w; j++)
 				b[i][j] = a[(i * w)+j];
 		return b;
+	}
+	
+	// useNNxValues(pixelIn1dArr, w1, h1, newW, newH);
+	// Use Nearest Neighbors method to interpolate x values
+	public static int[] useNNxValues(int[] pixels, int w1, int h1, int w2, int h2) {
+	    int[] temp = new int[w2*h2] ;
+	    int rowsForXvalues = h2/w1;
+	    double x_ratio = w1/(double)w2 ;
+	    double y_ratio = h1/(double)h2 ;
+	    double px, py ; 
+	    for (int i=0;i<h2;i++) {
+	    	if( (i == 0) || ( (i % rowsForXvalues) == 0) ) {
+	    		continue;
+	    	}
+	        for (int j=0;j<w2;j++) {
+	            px = Math.floor(j*x_ratio) ;
+	            py = Math.floor(i*y_ratio) ;
+	            temp[(i*w2)+j] = pixels[(int)((py*w1)+px)];
+	        }
+	    }
+	    return temp ;
 	}
 	
 	public static int[] resizePixelsNN(int[] pixels, int w1, int h1, int w2, int h2) {
@@ -352,7 +444,7 @@ public class Image_Operations {
 		// change the grayscale resolution
 		for(int i = 0; i < numOfRow; i++)	{
 			for(int j = 0; j < numOfCol; j++) {
-				pixel[i][j] = (int) Math.floor( (pixel[i][j]) / (Math.pow(2, 8 - defaultNumOfBits)) );
+				pixel[i][j] = (int) Math.floor( (pixel[i][j]) / (Math.pow(2, 8 - numOfBits)) );
 			}
 		}
 	}
@@ -379,7 +471,8 @@ public class Image_Operations {
 		Raster raster = null;
 		
 		// load the image
-		lena = loadImage();
+		lena = loadImage("/Users/maxkim/Applications/maxfolder/CPP/"
+				+ "CS555_Image_Processing_Raheja/Image_Operations/lena_gray.gif");
 		
 		// get the gray scale version of Lena image
 		lenaGray = convertToGrayScale(lena);
@@ -412,11 +505,21 @@ public class Image_Operations {
 	
 	public static void main(String[] args) throws IOException {
 		BufferedImage img, imgGray = null;
-		img = loadImage();
+		img = loadImage("/Users/maxkim/Applications/maxfolder/CPP/"
+				+ "CS555_Image_Processing_Raheja/Image_Operations/shrinked64.gif");
 		imgGray = convertToGrayScale(img);
-		zoomNeighbors(imgGray, 1024, 1024, "nn1024.gif"); // Use Nearest Neighbors Interpolation to zoom an image
-		zoomBilinear(imgGray, 1024, 1024, "bi1024.gif"); // Use Bilinear Interpolation to zoom the image
-		changeGrayScaleRes(img, 5, "res5.gif");
+		zoomNeighbors(imgGray, 1024, 1024, "nn1024.gif"); // Use Nearest
+															// Neighbors
+															// Interpolation to
+															// zoom an image
+		zoomBilinear(imgGray, 1024, 1024, "bi1024.gif"); // Use Bilinear
+															// Interpolation to
+															// zoom the image
+		zoomLinearY(imgGray, 1024, 1024 ,"x", "linearY1024.gif");
+		changeGrayScaleRes(imgGray, 5, "res5.gif");
 		shrinkPixelTest(64, "shrinked64.gif");
+		zoomLinearY(imgGray, 1024, 1024 ,"x", "linearX1024.gif");
+
+		int[][]a = new int[3][3];
 	}
 }
